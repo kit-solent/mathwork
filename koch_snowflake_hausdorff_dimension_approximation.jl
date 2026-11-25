@@ -8,13 +8,10 @@ using InteractiveUtils
 begin
 	using Plots
 	using StaticArrays
-end
+	using LinearAlgebra
 
-# ╔═╡ c34645ce-d3ec-4258-81d5-d8943def90d3
-md"""
-epsilon is the side length of the squares
-squares are described by the coordinates of their top left corner
-"""
+	md"""imports"""
+end
 
 # ╔═╡ ae4bf642-a9df-4692-83a5-bdecf2381d96
 begin
@@ -23,22 +20,23 @@ begin
 	Segment = SVector{2,Vec2} # A line segment determined by its endpoints
 	DSegment = Tuple{Segment, Vec2} # a line segment along with a unit normal vector
 	Line = Vector{Vec2} # A line composed of segments
+	Box = Tuple{Vec2, Float64} # represents a box as a bottom left corner position and a side length.
 
-	nothing
+	md"""This cell has some new types for ease of use"""
 end
 
 # ╔═╡ f59e6335-798e-472e-a7ad-16782fca0b6d
 begin
 	""" Rotates the given Vec2 by the given amount theta in radians
 	"""
-	function rot_vec2(vec2, theta)
+	function rot_vec2(vec2::Vec2, theta::Float64)::Vec2
 		return [cos(theta) -sin(theta); sin(theta) cos(theta)] * vec2
 	end
 	
 	""" Takes a line given as a vector of 2Tuple points and returns a vector
 	of line segments
 	"""	
-	function segment_line(line::Line)
+	function segment_line(line::Line)::Vector{Segment}
 		if length(line) < 2
 			println("Error: Attempting to segment a line with less that two points.")
 		end
@@ -56,60 +54,331 @@ begin
 	DSegment. Takes the coordinates of the segment ends and
 	returns a vector of DSegments representing the snowflake step
 	"""
-	function step_segment(segment, normal)
-		# to split the line into thirds we first parameterise it where
-		# our parameter t goes from 0 to 1
-		line(t) = segment[1] + t*(segment[2] - segment[1])
+	function step_segment(segment::Segment, normal::Vec2)::Vector{DSegment}
+		normal = normalize(normal)
 		
-		seg_len = sqrt((line(0) - line(1)))
+		# get the vector pointing along the length of the segment
+		seg_vec = segment[2] - segment[1]
 
+		# parameterise from t=0 to t=1
+		line(t) = segment[1] + t*seg_vec
+
+		# find the length of the segment
+		seg_len = norm(seg_vec)
+
+		# calculate the 5 coordinates forming the new line
 		coord1 = line(0)
-		coord2 = line(1/3)
-		coord3 = line(1/2) + normal*
+		coord2 = line(1/3) # the sqrt(3)/6 is explained in the book
+		coord3 = line(1/2) + (sqrt(3)/6)*seg_len*normal
 		coord4 = line(2/3)
 		coord5 = line(1)
+
+		# the first and last segments use the same normal vector but the
+		# middle two require rotating it by +- pi/3 rad.
+		norm2 = rot_vec2(normal, pi/3)
+		norm3 = rot_vec2(normal, -pi/3)
+
+		# now put together and return the 4 DSegments
+		dseg1 = DSegment((Segment([coord1, coord2]), normal))
+		dseg2 = DSegment((Segment([coord2, coord3]), norm2))
+		dseg3 = DSegment((Segment([coord3, coord4]), norm3))
+		dseg4 = DSegment((Segment([coord4, coord5]), normal))
+
+		return [dseg1, dseg2, dseg3, dseg4]
 	end
 	
 	""" Steps the given snowflake nflake forward by one step. This
 	splits the line into segments and replaces each segment with four
-	new segments as per the Koch snowflake rules
+	new segments as per the Koch snowflake rules and returns the result
 	"""
-	function step_snowflake!(nflake)
-		nothing
+	function step_snowflake(nflake::Vector{DSegment})
+		new_segments::Vector{DSegment} = []
+
+		for segment in nflake
+			append!(new_segments, step_segment(segment[1], segment[2]))
+		end
+
+		return new_segments
 	end
 
-	nothing
+	""" Converts a vector of DSegments into a vector of points
+	"""
+	function dsegs2points(segments::Vector{DSegment})::Vector{Vec2}
+		points::Vector{Vec2} = []
+
+		for segment in segments
+			# add the first point of each segment
+			push!(points, segment[1][1])
+		end
+
+		# now add the last point of the last segment
+		push!(points, last(segments)[1][2])
+
+		return points
+	end
+
+	""" Converts a vector of DSegments into a vector of normal vectors
+	"""
+	function dsegs2norms(segments::Vector{DSegment})::Vector{Vec2}
+		norms::Vector{Vec2} = []
+
+		for segment in segments
+			push!(norms, segment[2])
+		end
+
+		return norms
+	end
+	
+	""" Converts a vector of points into a vector of x values and
+	a vector of y values
+	"""
+	function split_points(points::Vector{Vec2})::NTuple{2, Vector{Float64}}
+		xs::Vector{Float64} = []
+		ys::Vector{Float64} = []
+
+		for point in points
+			push!(xs, point[1])
+			push!(ys, point[2])
+		end
+
+		return (xs, ys)
+	end
+
+	""" Given a Box and a side length epsilon returns an array of
+	boxes of side length epsilon that covers the given Box
+	"""
+	function split_box(box::Box, epsilon::Float64)::Vector{Box}
+		boxs::Vector{Box} = []
+		
+		for y in 0:epsilon:box[2]
+			for x in 0:epsilon:box[2]
+				push!(boxs, Box((
+					box[1]+Vec2([x,y]), # the corner is the generated coords plus the initial box corner
+					epsilon
+				)))
+			end
+		end
+
+		return boxs
+	end
+
+	""" Returns true if the given point is inside the given box. This
+	includes the border of the box as part of the box
+	"""
+	function point_in_box(box::Box, point::Vec2)::Bool
+		# the point is in the box iff it is between the left and
+		# right walls (x values) and between the top and bottom 
+		# wall (y values)
+		epsilon = box[2]
+		left = box[1][1]
+		right = left + epsilon
+		bottom = box[1][2]
+		top = bottom + epsilon
+
+		x = point[1]
+		y = point[2]
+
+		return left <= x <= right && bottom <= y <= top
+	end
+
+	""" Returns true if the two given one dimensional closed intervals overlap
+	Note that intervals are represented as Vec2 and the order of the two elements
+	doesn't matter
+	"""
+	function intervals_overlap(interval1::Vec2, interval2::Vec2)::Bool
+		i1_small = minimum(interval1)
+		i1_big   = maximum(interval1)
+		i2_small = minimum(interval2)
+		i2_big   = maximum(interval2)
+
+		return i1_big >= i2_small || i2_big >= i1_small
+	end
+	
+	""" Takes 4 points representing 2 line segments and returns true
+	if they intersect and false otherwise
+	"""
+	function segs_intersect(a1::Vec2, a2::Vec2, b1::Vec2, b2::Vec2)::Bool
+		# much of this function relies on the fact that the segments in a koch
+		# curve are never vertical. This is because segment normals are rotated
+		# by +- pi/3 so can never get to the vertical normal angle of pi/2.
+		
+		# segment direction vectors
+		vec1 = a2 - a1
+		vec2 = b2 - b1
+
+		# gradients
+		m1 = vec1[2]/vec1[1]
+		m2 = vec2[2]/vec2[1]
+
+		# 0-1 parameterisations
+		p1(t) = a1 + t*vec1
+		p2(t) = b1 + t*vec2
+
+		# y intercepts using known points a1, b1
+		c1 = a1[2] - m1*a1[1]
+		c2 = b1[2] - m2*b1[1]
+
+		if isapprox(m1, m2) # i.e. are they parallel
+			if isapprox(c1, c2) # i.e. are they segments of the same line
+				# we can take the 0-1 parameterisation of the first line
+				# and force the second line to use the same t then compare
+				# the t intervals
+				t1 = b1[1]/vec1[1] # no vertical lines or 0-len lines means no x=0
+				t2 = b2[1]/vec1[1]
+
+				return intervals_overlap(Vec2([0, 1]), Vec2([t1, t2]))
+			else
+				# if the segments are parallel but don't lie on the same line
+				return false # they can't intersect
+			end
+		else
+			# if the segments aren't parallel then we can just solve for an intersection
+			x = (c2 - c1)/(m1 - m2)
+			y = m1*x + c1 # could also use m2 and c2 for the same result
+
+			# now we check that the intersection is on both lines
+			return all([
+				# first line
+				min(a1[1], a2[1]) <= x <= max(a1[1], a2[1]) # x coords
+				min(a1[2], a2[2]) <= y <= max(a1[2], a2[2]) # y coords
+
+				# second line
+				min(b1[1], b2[1]) <= x <= max(b1[1], b2[1]) # x coords
+				min(b1[2], b2[2]) <= y <= max(b1[2], b2[2]) # y coords
+			])
+		end
+	end
+
+	""" Returns the four segments of the given box
+	"""
+	function box_segs(box::Box)::Vector{Segment}
+		e = box[2] # epsilon
+		p = box[1] # position
+		x = p[1]
+		y = p[2]
+		return [
+			[[x  ,y  ],   [x+e,y  ]], # bottom edge
+			[[x+e,y  ],   [x+e,y+e]], # right edge
+			[[x+e,y+e],   [x  ,y+e]], # top edge
+			[[x  ,y+e],   [x  ,y  ]]  # left edge
+		]
+	end
+	
+	""" Given a Box and a pair of Vec2 values representing a line segment
+	returns true if any portion of the line segment is inside the box
+	"""
+	function line_cuts_box(box::Box, seg1::Vec2, seg2::Vec2)::Bool
+		bsegs = box_segs(box)
+		return any([
+			point_in_box(box, seg1), # if either endpoint is in the box
+			point_in_box(box, seg2),
+
+			# 4 segment intersections to check for
+			segs_intersect(bsegs[1][1], bsegs[1][2], seg1, seg2),
+			segs_intersect(bsegs[2][1], bsegs[2][2], seg1, seg2),
+			segs_intersect(bsegs[3][1], bsegs[3][2], seg1, seg2),
+			segs_intersect(bsegs[4][1], bsegs[4][2], seg1, seg2),
+		])
+	end
+	
+	""" Given a Box and a Vector{Vec2} returns True if any portion of any of the
+	line segments in the vector are inside the box.
+	"""
+	function box_full(box::Box, curve::Vector{Vec2})::Bool
+		for seg in segment_line(curve)
+			if line_cuts_box(box, seg[1], seg[2])
+				return true
+			end
+		end
+
+		return false
+	end
+
+	""" Adds a little transparent box to the existing graph with plot!(...)
+	"""
+	function fill_box(plot::Plots.Plot, box::Box, red = false)
+		plot!(
+			plot, # add to an existing plot
+			Shape([
+				(box[1][1], box[1][2]), # bottom left
+				(box[1][1]+box[2], box[1][2]), # bottom right
+				(box[1][1]+box[2], box[1][2]+box[2]), # top right
+				(box[1][1], box[1][2]+box[2]), # top left
+			]),
+			fillalpha = 0.2,
+			fillcolor = (red ? :red : :green),
+			linecolor=:transparent, # no border
+			label = "" # no legend entry
+		)
+	end
+	
+	md""" This cell contains the functions that do all the calculations
+	"""
+end
+
+# ╔═╡ c34645ce-d3ec-4258-81d5-d8943def90d3
+md"""
+epsilon is the side length of the squares
+squares are described by the coordinates of their top left corner
+"""
+
+# ╔═╡ f360bacb-3773-4902-8064-845dae8a672e
+begin
+	epsilon = 0.02
 end
 
 # ╔═╡ d3a0c740-b0c4-411e-9afc-c139253c2b06
-# start by constructing the koch snowflake to the given depth
-# the snowflake is represented as a vector of points
+begin
+	# start by constructing the koch snowflake to the given depth
+	# the snowflake is represented as a vector of points and normals
+	snowflake::Vector{DSegment} = [DSegment((
+		Segment((0.0, 0.0), (1.0, 0.0)), # line from the origin to x=1
+		Vec2(0.0, 1.0) # the normal vector points straight up
+	))]
 
-snowflake::Vector{NTuple{2,Float64}} = [(0.0, 0.0), (1.0, 0.0)]
+	depth = 6
+	for i in 1:depth
+		snowflake = step_snowflake(snowflake)
+	end
+
+	snowflake_segments = dsegs2points(snowflake)
+	
+	xs, ys = split_points(snowflake_segments)
+	
+	plt = plot(xs, ys, aspect_ratio = :equal)
+
+	# now construct a box that covers the whole snowflake and start chopping it up
+	box = Box((Vec2([-0.01, -0.01]), 1.02))
+
+	covering = split_box(box, epsilon)
+
+	for box in covering
+		if box[1][2] <= 0.3 # hopefully this speeds things up a bit, guess I could also change the box type to support rectangles with differing dimensions.
+			if box_full(box, snowflake_segments)
+				fill_box(plt, box, true)
+			else
+				fill_box(plt, box, false)
+			end
+		end
+	end
+
+	plt
+end
 
 # ╔═╡ 3765cac9-3163-4561-8192-6052add2d04a
-begin
-	# testing
-	segments = segment_line([
-		Vec2(0.0, 0.0),
-		Vec2(0.0, 1.0),
-		Vec2(1.0, 1.0),
-		Vec2(1.0, 0.0),
-		Vec2(2.0, 0.0),
-		Vec2(5.0, 1.0)
-	])
-	
-	# for segment in segments
-	# 	println(segment)
-	# end
+# begin
+# 	# now construct a box that covers the whole snowflake and start chopping it up
+# 	box = Box((Vec2([-0.01, -0.01]), 1.02))
 
-	test_vec2 = Vec2(1.0, 0.0)
-	println(rot_vec2(test_vec2, pi/2))
-end
+# 	covering = split_box(box, epsilon)
+
+	
+# end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
@@ -124,7 +393,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.13.4"
 manifest_format = "2.1"
-project_hash = "23f4cfcabd4b41ba13d34a3de3d8be03ce8c2f98"
+project_hash = "561077479cbda729c90f58a4fd068d9e58dbecb1"
 
 [[deps.AliasTables]]
 deps = ["PtrArrays", "Random"]
@@ -1329,11 +1598,12 @@ uuid = "23338594-aafe-5451-b93e-139f81909106"
 """
 
 # ╔═╡ Cell order:
-# ╠═913af080-e78d-11f1-8d97-03a1263382b1
-# ╟─c34645ce-d3ec-4258-81d5-d8943def90d3
+# ╟─913af080-e78d-11f1-8d97-03a1263382b1
 # ╠═ae4bf642-a9df-4692-83a5-bdecf2381d96
 # ╠═f59e6335-798e-472e-a7ad-16782fca0b6d
 # ╠═d3a0c740-b0c4-411e-9afc-c139253c2b06
+# ╟─c34645ce-d3ec-4258-81d5-d8943def90d3
+# ╠═f360bacb-3773-4902-8064-845dae8a672e
 # ╠═3765cac9-3163-4561-8192-6052add2d04a
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
