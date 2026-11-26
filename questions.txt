@@ -1,2 +1,3 @@
 how do I actually describe/generate the Riley Slice boundary points?
 the name of that book they said in the first meeting
+mention that the code still fails to detect horizontal segments cutting through a vertical box wall
