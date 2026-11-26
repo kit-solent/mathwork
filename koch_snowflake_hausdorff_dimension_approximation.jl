@@ -39,7 +39,7 @@ begin
 	"""	
 	function segment_line(line::Line)::Vector{Segment}
 		if length(line) < 2
-			println("Error: Attempting to segment a line with less that two points.")
+			error("Attempting to segment a line with less that two points.")
 		end
 		
 		segments::Vector{Segment} = []
@@ -149,7 +149,7 @@ begin
 		return norms
 	end
 
-	"""
+	""" Generates a Koch curve to the given depth
 	"""
 	function generate_snowflake(depth::UInt32)::Vector{DSegment}
 		# start by constructing the koch snowflake to the given depth
@@ -167,27 +167,6 @@ begin
 	end
 	
 	md""" This cell contains the functions used to generate the Koch curve
-	"""
-end
-
-# ╔═╡ f360bacb-3773-4902-8064-845dae8a672e
-begin
-	epsilon::Float64 = 0.001 # the side length of the box counting grid cells
-	split_factor::UInt32 = 2 # the factor by which to split side lengths at each step
-	depth::UInt32 = 6 # the depth to which the Koch curve is calculated
-
-	# graph style stuff
-	graph::Bool = true # should we plot a graph
-	lwidth::Float64 = 0.2 # width of the Koch curve line
-	border::Bool = true # should the approximation boxes show a border
-	dpi::UInt32 = 400 # resolution of the graph
-	
-	full_square::Bool = false # should the full green square show (top half empty)
-	top_line::Float64 = 0.5 # parts of the graph above this can be cut off
-	# NOTE: making top_line=0.3 causes the squares that start below 0.3 but end above
-	# it to push the graph up to 0.5 anyway :(
-
-	md""" Constants
 	"""
 end
 
@@ -226,124 +205,41 @@ begin
 
 		return boxs
 	end
-
-	""" Returns true if the given point is inside the given box. This
-	includes the border of the box as part of the box
-	"""
-	function point_in_box(box::Box, point::Vec2)::Bool
-		# the point is in the box iff it is between the left and
-		# right walls (x values) and between the top and bottom 
-		# wall (y values)
-		epsilon = box[2]
-		left = box[1][1]
-		right = left + epsilon
-		bottom = box[1][2]
-		top = bottom + epsilon
-
-		x = point[1]
-		y = point[2]
-
-		return left <= x <= right && bottom <= y <= top
-	end
-
-	""" Returns true if the two given one dimensional closed intervals overlap
-	Note that intervals are represented as Vec2 and the order of the two elements
-	doesn't matter
-	"""
-	function intervals_overlap(interval1::Vec2, interval2::Vec2)::Bool
-		i1_small = minimum(interval1)
-		i1_big   = maximum(interval1)
-		i2_small = minimum(interval2)
-		i2_big   = maximum(interval2)
-
-		return i1_big >= i2_small || i2_big >= i1_small
-	end
-	
-	""" Takes 4 points representing 2 line segments and returns true
-	if they intersect and false otherwise
-	""" # TODO: This function fails for vertical segments like the sides of a box
-	function segs_intersect(a1::Vec2, a2::Vec2, b1::Vec2, b2::Vec2)::Bool
-		# much of this function relies on the fact that the segments in a koch
-		# curve are never vertical. This is because segment normals are rotated
-		# by +- pi/3 so can never get to the vertical normal angle of pi/2.
-		
-		# segment direction vectors
-		vec1 = a2 - a1
-		vec2 = b2 - b1
-
-		# gradients
-		m1 = vec1[2]/vec1[1]
-		m2 = vec2[2]/vec2[1]
-
-		# 0-1 parameterisations
-		p1(t) = a1 + t*vec1
-		p2(t) = b1 + t*vec2
-
-		# y intercepts using known points a1, b1
-		c1 = a1[2] - m1*a1[1]
-		c2 = b1[2] - m2*b1[1]
-
-		if isapprox(m1, m2) # i.e. are they parallel
-			if isapprox(c1, c2) # i.e. are they segments of the same line
-				# we can take the 0-1 parameterisation of the first line
-				# and force the second line to use the same t then compare
-				# the t intervals
-				t1 = b1[1]/vec1[1] # no vertical lines or 0-len lines means no x=0
-				t2 = b2[1]/vec1[1]
-
-				return intervals_overlap(Vec2([0, 1]), Vec2([t1, t2]))
-			else
-				# if the segments are parallel but don't lie on the same line
-				return false # they can't intersect
-			end
-		else
-			# if the segments aren't parallel then we can just solve for an intersection
-			x = (c2 - c1)/(m1 - m2)
-			y = m1*x + c1 # could also use m2 and c2 for the same result
-
-			# now we check that the intersection is on both lines
-			return all([
-				# first line
-				min(a1[1], a2[1]) <= x <= max(a1[1], a2[1]) # x coords
-				min(a1[2], a2[2]) <= y <= max(a1[2], a2[2]) # y coords
-
-				# second line
-				min(b1[1], b2[1]) <= x <= max(b1[1], b2[1]) # x coords
-				min(b1[2], b2[2]) <= y <= max(b1[2], b2[2]) # y coords
-			])
-		end
-	end
-
-	""" Returns the four segments of the given box
-	"""
-	function box_segs(box::Box)::Vector{Segment}
-		e = box[2] # epsilon
-		p = box[1] # position
-		x = p[1]
-		y = p[2]
-		return [
-			[[x  ,y  ],   [x+e,y  ]], # bottom edge
-			[[x+e,y  ],   [x+e,y+e]], # right edge
-			[[x+e,y+e],   [x  ,y+e]], # top edge
-			[[x  ,y+e],   [x  ,y  ]]  # left edge
-		]
-	end
 	
 	""" Given a Box and a pair of Vec2 values representing a line segment
 	returns true if any portion of the line segment is inside the box
 	"""
 	function line_cuts_box(box::Box, seg1::Vec2, seg2::Vec2)::Bool
-		bsegs = box_segs(box)
-		return any([
-			point_in_box(box, seg1), # if either endpoint is in the box
-			point_in_box(box, seg2),
+		# the line segment goes from (a,b) to (x,y)
+		a = seg1[1]
+		b = seg1[2]
+		x = seg2[1]
+		y = seg2[2]
 
-			# 4 segment intersections to check for
-			segs_intersect(bsegs[1][1], bsegs[1][2], seg1, seg2),
-			segs_intersect(bsegs[2][1], bsegs[2][2], seg1, seg2),
-			segs_intersect(bsegs[3][1], bsegs[3][2], seg1, seg2),
-			segs_intersect(bsegs[4][1], bsegs[4][2], seg1, seg2),
-		])
+		# the box is deffined as the set of points where x_min <= x <= x_max
+		# and y_min <= y <= y_max
+		x_min = box[1][1]
+		x_max = x_min + box[2]
+		y_min = box[1][2]
+		y_max = y_min + box[2]
+
+		# the segment intersects the box iff the segment intersects the vertical
+		# strip x_min <= x <= x_max and the horrisontal strip y_min <= y <= y_max
+
+		# test the vertical strip
+		#  fully left of the strip     fully right of the strip
+		if (a < x_min && x < x_min) || (a > x_max && x > x_max)
+			return false
+		end
+
+		# test the horrisontal strip
+		#  fully below the strip        fully above the strip
+		if (b < y_min && y < y_min) || (b > y_max && y > y_max)
+			return false
+		end
+
+		# if it cuts both the vertical and horrisontal strip it cuts the box
+		return true
 	end
 	
 	""" Given a Box and a Segment vector returns only the Segments inside the box
@@ -426,9 +322,32 @@ begin
 	"""
 end
 
+# ╔═╡ f360bacb-3773-4902-8064-845dae8a672e
+begin
+	epsilon::Float64 = 0.001 # the side length of the box counting grid cells
+	split_factor::UInt32 = 2 # the factor by which to split side lengths at each step
+	depth::UInt32 = 6 # the depth to which the Koch curve is calculated
+
+	# graph style stuff
+	graph::Bool = true # should we plot a graph
+	lwidth::Float64 = 0.15 # width of the Koch curve line
+	border::Bool = true # should the approximation boxes show a border
+	dpi::UInt32 = 400 # resolution of the graph
+	
+	full_square::Bool = false # should the full green square show (top half empty)
+	top_line::Float64 = 0.5 # parts of the graph above this can be cut off
+	# NOTE: making top_line=0.3 causes the squares that start below 0.3 but end above
+	# it to push the graph up to 0.5 anyway :(
+
+	md""" Constants
+	"""
+end
+
 # ╔═╡ d3a0c740-b0c4-411e-9afc-c139253c2b06
 begin
-	snowflake = generate_snowflake(depth)
+	stats = @timed generate_snowflake(depth)
+	snowflake = stats.value
+	snowflake_time = stats.time
 
 	snowflake_line = dsegs2points(snowflake)
 	snowflake_segments = dsegs2segments(snowflake)
@@ -438,7 +357,11 @@ begin
 	
 	stats = @timed calculate_grid(box, epsilon, split_factor, snowflake_segments)
 	full, empty = stats.value
-	time = round(stats.time, digits=2)
+	grid_time = round(stats.time, digits=2)
+
+	# the actual epsilon should be smaller than the given one and is just the
+	# box dimension of any full box (but keep the default if no boxes are full)
+	final_epsilon = length(full) > 0 ? full[1][2] : epsilon
 	
 	# and draw the results
 	if graph
@@ -448,7 +371,7 @@ begin
 				   aspect_ratio=:equal,
 				   grid=false,
 				   dpi=dpi,
-				   title = "Boxcounting Approximation to the Koch Curve\nϵ=$epsilon, computation took $(time)s",
+				   title = "Boxcounting Approximation to the Koch Curve\nϵ=$final_epsilon, computation took $(grid_time)s",
 				   titlefontsize = 13,
 				   label = "Koch Curve",
 				   fmt = :svg
@@ -464,23 +387,26 @@ begin
 			end
 		end
 	
-		plt #Inkscape gives a much better zoom that a browser
+		plt
 	end
 end
 
 # ╔═╡ 5e527717-b782-4f82-a15b-5f0a82b9bacf
 begin
 	# and the actual Hausdorff dimension approximations
-	D = log(length(full))/log(1/epsilon)
+	D = log(length(full))/log(1/final_epsilon)
 	Expected = log(4)/log(3) # stolen from Wikipedia, calculated with self symmetry
-	error = abs(Expected - D)
+	err = abs(Expected - D)
 
 	md"""
-	Numerical Approximation: $D
-	
-	Exact Value: $Expected
-	
-	Error: $error
+	## Results
+	- Epsilon: $final_epsilon
+	- Box count: $(length(full)) 
+	- Numerical Approximation: $D 
+	- Exact Value: $Expected 
+	- Error: $err 
+	- Snowflake generation time: $snowflake_time s 
+	- Boxcounting time: $grid_time s 
 	"""
 end
 
