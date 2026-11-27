@@ -170,6 +170,27 @@ begin
 	"""
 end
 
+# ╔═╡ f360bacb-3773-4902-8064-845dae8a672e
+begin
+	epsilon::Float64 = 0.0001 # the side length of the box counting grid cells
+	split_factor::UInt32 = 2 # the factor by which to split side lengths at each step
+	depth::UInt32 = 7 # the depth to which the Koch curve is calculated
+
+	# graph style stuff
+	graph::Bool = false # should we plot a graph
+	lwidth::Float64 = 0.15 # width of the Koch curve line
+	border::Bool = true # should the approximation boxes show a border
+	dpi::UInt32 = 400 # resolution of the graph
+	
+	full_square::Bool = false # should the full green square show (top half empty)
+	top_line::Float64 = 0.5 # parts of the graph above this can be cut off
+	# NOTE: making top_line=0.3 causes the squares that start below 0.3 but end above
+	# it to push the graph up to 0.5 anyway :(
+
+	md""" Constants
+	"""
+end
+
 # ╔═╡ f59e6335-798e-472e-a7ad-16782fca0b6d
 begin	
 	""" Converts a vector of points into a vector of x values and
@@ -231,6 +252,9 @@ begin
 		if (a < x_min && x < x_min) || (a > x_max && x > x_max)
 			return false
 		end
+
+		# TODO: benchmark this against the above
+		# ((a < x_min && x < x_min) || (a > x_max && x > x_max)) && return false
 
 		# test the horrisontal strip
 		#  fully below the strip        fully above the strip
@@ -322,27 +346,6 @@ begin
 	"""
 end
 
-# ╔═╡ f360bacb-3773-4902-8064-845dae8a672e
-begin
-	epsilon::Float64 = 0.001 # the side length of the box counting grid cells
-	split_factor::UInt32 = 2 # the factor by which to split side lengths at each step
-	depth::UInt32 = 6 # the depth to which the Koch curve is calculated
-
-	# graph style stuff
-	graph::Bool = true # should we plot a graph
-	lwidth::Float64 = 0.15 # width of the Koch curve line
-	border::Bool = true # should the approximation boxes show a border
-	dpi::UInt32 = 400 # resolution of the graph
-	
-	full_square::Bool = false # should the full green square show (top half empty)
-	top_line::Float64 = 0.5 # parts of the graph above this can be cut off
-	# NOTE: making top_line=0.3 causes the squares that start below 0.3 but end above
-	# it to push the graph up to 0.5 anyway :(
-
-	md""" Constants
-	"""
-end
-
 # ╔═╡ d3a0c740-b0c4-411e-9afc-c139253c2b06
 begin
 	stats = @timed generate_snowflake(depth)
@@ -409,6 +412,25 @@ begin
 	- Boxcounting time: $grid_time s 
 	"""
 end
+
+# ╔═╡ 72ea3fb2-93b6-47c5-9ad7-97bc176efa94
+md"""
+pleating rays border at -2
+more examples (Julia sets, Mandlebrot)
+look at matrix traces, doesn't depend on representation of matrix
+Cristophel words are related to Farey words, words are combinations of two generators and their inverses 
+
+The mother of all identities is tr(AB) = tr(A)tr(B)-tr(AB^{-1}) for 2x2 matrices with determinant 1
+
+seirpinsky gasket
+
+rewrite recursion as for loop
+
+Distributed.jl
+ParallelComputing.jl
+MPI
+native multithreading
+"""
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1661,9 +1683,10 @@ uuid = "23338594-aafe-5451-b93e-139f81909106"
 # ╟─913af080-e78d-11f1-8d97-03a1263382b1
 # ╟─ae4bf642-a9df-4692-83a5-bdecf2381d96
 # ╟─37607de1-9a80-44dc-a1ae-0b8d4e84921c
-# ╟─f59e6335-798e-472e-a7ad-16782fca0b6d
+# ╠═f59e6335-798e-472e-a7ad-16782fca0b6d
 # ╠═d3a0c740-b0c4-411e-9afc-c139253c2b06
 # ╠═5e527717-b782-4f82-a15b-5f0a82b9bacf
 # ╠═f360bacb-3773-4902-8064-845dae8a672e
+# ╠═72ea3fb2-93b6-47c5-9ad7-97bc176efa94
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
