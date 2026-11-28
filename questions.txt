@@ -1,4 +1,5 @@
-how do I actually describe/generate the Riley Slice boundary points?
+When I get The Arithmetic of Hyperbolic 3-Manifolds book look at chapter 3
+
 
 different conventions on how words are written
 
@@ -12,23 +13,5 @@ start with Julia sets (how to draw the mandlebrot set)
 
 plot log boxcount against log boxsize and fit a curve to it
 
-don't take Gavin verbatim
+
 jetstar cheaper
-
-
-
-I am still here and listening juts eating post tennis snack and trying not to be too disruptive :-)
-
-Jeroen Schillewaert 11:23 AM
-The mother of all identities is tr(AB) = tr(A)tr(B)-tr(AB^{-1}) for 2x2 matrices with determinant 1
-Maclachlan Reid Geometry of 3-manifolds
-https://link.springer.com/book/10.1007/978-1-4757-6720-9
-
-Thomas Csizmadia 11:30 AM (Edited)
-A^2 - tr(A) A + det A
-
-Thomas Csizmadia 11:30 AM
-A^-1
-
-Jeroen Schillewaert 11:32 AM
-Beardon The geometry of discrete groups
