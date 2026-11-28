@@ -54,9 +54,18 @@ begin
 	""" Applies a step of the Koch snowflake process to a single
 	DSegment. Takes the coordinates of the segment ends and
 	returns a vector of DSegments representing the snowflake step
+	If randomize is true the normal vector has a 50% chance of having its
+    direction flipped before the segment is stepped
 	"""
-	function step_segment(segment::Segment, normal::Vec2)::Vector{DSegment}
+	function step_segment(segment::Segment, normal::Vec2, randomize::Bool = true)::Vector{DSegment}
 		normal = normalize(normal)
+
+		# randomization
+		if randomize
+			if rand(Bool, 1)[1]
+				normal = -normal
+			end
+		end
 		
 		# get the vector pointing along the length of the segment
 		seg_vec = segment[2] - segment[1]
@@ -90,7 +99,7 @@ begin
 	
 	""" Steps the given snowflake nflake forward by one step. This
 	splits the line into segments and replaces each segment with four
-	new segments as per the Koch snowflake rules and returns the result
+	new segments as per the Koch snowflake rules and returns the result.
 	"""
 	function step_snowflake(nflake::Vector{DSegment})
 		new_segments::Vector{DSegment} = []
@@ -172,12 +181,12 @@ end
 
 # ╔═╡ f360bacb-3773-4902-8064-845dae8a672e
 begin
-	epsilon::Float64 = 0.0001 # the side length of the box counting grid cells
+	epsilon::Float64 = 0.01 # the side length of the box counting grid cells
 	split_factor::UInt32 = 2 # the factor by which to split side lengths at each step
 	depth::UInt32 = 7 # the depth to which the Koch curve is calculated
 
 	# graph style stuff
-	graph::Bool = false # should we plot a graph
+	graph::Bool = true # should we plot a graph
 	lwidth::Float64 = 0.15 # width of the Koch curve line
 	border::Bool = true # should the approximation boxes show a border
 	dpi::UInt32 = 400 # resolution of the graph
@@ -357,7 +366,7 @@ begin
 
 	# now construct a box that covers the whole snowflake and start chopping it up
 	box::Box = Box((Vec2([-0.01, -0.01]), 1.02))
-	
+	 
 	stats = @timed calculate_grid(box, epsilon, split_factor, snowflake_segments)
 	full, empty = stats.value
 	grid_time = round(stats.time, digits=2)
@@ -1682,8 +1691,8 @@ uuid = "23338594-aafe-5451-b93e-139f81909106"
 # ╔═╡ Cell order:
 # ╟─913af080-e78d-11f1-8d97-03a1263382b1
 # ╟─ae4bf642-a9df-4692-83a5-bdecf2381d96
-# ╟─37607de1-9a80-44dc-a1ae-0b8d4e84921c
-# ╠═f59e6335-798e-472e-a7ad-16782fca0b6d
+# ╠═37607de1-9a80-44dc-a1ae-0b8d4e84921c
+# ╟─f59e6335-798e-472e-a7ad-16782fca0b6d
 # ╠═d3a0c740-b0c4-411e-9afc-c139253c2b06
 # ╠═5e527717-b782-4f82-a15b-5f0a82b9bacf
 # ╠═f360bacb-3773-4902-8064-845dae8a672e
